@@ -190,6 +190,7 @@ class XianyuApis:
             # 添加Cookie
             cookie_str = "; ".join([f"{k}={v}" for k, v in cookies.items()])
             headers["Cookie"] = cookie_str
+            headers["Content-Type"] = "application/x-www-form-urlencoded"
             
             # 准备请求参数
             params = {
@@ -202,13 +203,13 @@ class XianyuApis:
                 'dataType': 'json'
             }
             
-            # 准备请求数据
+            # 准备请求数据 - 使用 form 格式
             data = {
-                'itemId': item_id
+                'data': json.dumps({'itemId': item_id})
             }
             
             # 发送请求
-            response = requests.post(url, headers=headers, params=params, json=data)
+            response = requests.post(url, headers=headers, params=params, data=data)
             
             # 检查响应状态
             if response.status_code != 200:
@@ -217,12 +218,13 @@ class XianyuApis:
                 
             # 解析响应
             result = response.json()
-            if result.get("code") != 200:
+            if result.get("code") != 200 and result.get("code") != "200":
                 logger.error(f"获取商品信息失败，错误码: {result.get('code')}, 错误信息: {result.get('msg')}")
                 return None
                 
             # 返回商品信息
             return result.get("data", {})
+            
             
         except Exception as e:
             logger.error(f"获取商品信息时发生错误: {str(e)}")

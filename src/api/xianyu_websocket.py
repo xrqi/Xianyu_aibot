@@ -1153,7 +1153,7 @@ class XianyuLive(XianyuWebSocket):
             return item_description
         
         # 尝试从缓存或API获取
-        if item_id:
+        if item_id and item_id != "unknown_item":
             item_info = self._fetch_item_info(item_id)
             if item_info and item_info.get("title"):
                 parts = []
@@ -1166,6 +1166,10 @@ class XianyuLive(XianyuWebSocket):
                     parts.append(f"描述: {desc}")
                 
                 return "\n".join(parts) if parts else "未知商品"
+        
+        # 如果无法获取商品信息，返回明确的提示
+        if item_id and item_id != "unknown_item":
+            return f"【系统提示】无法获取商品 {item_id} 的详细信息。请诚实告知买家你需要查看商品详情后才能回答，或引导买家查看商品页面。"
         
         return item_description or "未知商品"
     
