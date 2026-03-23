@@ -1413,11 +1413,13 @@ class XianyuLive(XianyuWebSocket):
                                 pass
                 
                 # 临时收集所有可能与发货相关的关键词
+                # 注意：只有当消息较短（<50字符）或者是系统通知格式时才检查发货关键词
+                # 避免将包含商品描述的正常消息误判为发货通知
                 shipping_keywords = self.shipping_keywords
-                if any(keyword in send_message for keyword in shipping_keywords):
+                if len(send_message) < 100 and any(keyword in send_message for keyword in shipping_keywords):
                     is_shipping_notice = True
                     is_system_notice = True
-                    logger.info(f"检测到包含发货关键词的消息: '{send_message}'")
+                    logger.info(f"检测到包含发货关键词的短消息: '{send_message[:50]}...'")
                 
                 # 额外检查：消息是否为"发来一条新消息"
                 if send_message == "发来一条新消息":
