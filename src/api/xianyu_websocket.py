@@ -1659,6 +1659,21 @@ class XianyuLive(XianyuWebSocket):
                                         item_id = ext_json.get("itemId", "")
                                         item_description = ext_json.get("itemDescription", "未知商品")
                                         
+                                        # 如果 ext_json 中没有 itemId，尝试从 reminderUrl 提取
+                                        if not item_id:
+                                            reminder_url = extension.get("reminderUrl", "")
+                                            if reminder_url and "itemId=" in reminder_url:
+                                                try:
+                                                    # 解析 URL 参数
+                                                    from urllib.parse import urlparse, parse_qs
+                                                    parsed = urlparse(reminder_url)
+                                                    query_params = parse_qs(parsed.query)
+                                                    if 'itemId' in query_params:
+                                                        item_id = query_params['itemId'][0]
+                                                        logger.info(f"从 reminderUrl 提取到 itemId: {item_id}")
+                                                except Exception as e:
+                                                    logger.debug(f"从 reminderUrl 提取 itemId 失败: {e}")
+                                        
                                         # 如果消息不为空，处理消息
                                         if message_text:
                                             logger.info(f"收到用户 {send_user_name}({from_id}) 的消息: {message_text}")
