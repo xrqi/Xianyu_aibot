@@ -218,12 +218,21 @@ class XianyuApis:
                 
             # 解析响应
             result = response.json()
-            if result.get("code") != 200 and result.get("code") != "200":
-                logger.error(f"获取商品信息失败，错误码: {result.get('code')}, 错误信息: {result.get('msg')}")
+            
+            # 调试日志：打印完整响应
+            logger.debug(f"商品信息API响应: {json.dumps(result, ensure_ascii=False, indent=2)[:500]}")
+            
+            # 检查响应码（支持多种格式）
+            ret_code = result.get("code") or result.get("ret") or result.get("errorCode") or ""
+            if str(ret_code) not in ["200", "0", "SUCCESS", "OK"]:
+                logger.error(f"获取商品信息失败，错误码: {ret_code}, 错误信息: {result.get('msg') or result.get('message') or result.get('errorMsg')}")
                 return None
                 
-            # 返回商品信息
-            return result.get("data", {})
+            # 返回商品信息（支持多种数据结构）
+            data = result.get("data") or result.get("result") or result.get("item") or {}
+            if not data:
+                logger.warning(f"商品信息API返回空数据: {result.keys()}")
+            return data
             
             
         except Exception as e:

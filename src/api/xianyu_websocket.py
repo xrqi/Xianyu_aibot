@@ -636,6 +636,29 @@ class XianyuWebSocket:
             item_price = ""
             item_image = ""
             
+            # 尝试从消息内容字段提取商品卡片信息
+            try:
+                if "6" in message["1"] and isinstance(message["1"]["6"], dict):
+                    msg_content = message["1"]["6"]
+                    if "3" in msg_content and isinstance(msg_content["3"], dict):
+                        content_detail = msg_content["3"]
+                        # 检查是否有商品卡片JSON数据
+                        if "5" in content_detail and isinstance(content_detail["5"], str):
+                            try:
+                                card_data = json.loads(content_detail["5"])
+                                if card_data.get("contentType") == 7:  # 商品卡片
+                                    item_card = card_data.get("itemCard", {})
+                                    item_info = item_card.get("item", {})
+                                    if item_info:
+                                        item_id = str(item_info.get("itemId", item_id))
+                                        item_title = item_info.get("title", item_title)
+                                        item_price = item_info.get("price", item_price)
+                                        logger.info(f"从消息商品卡片提取: {item_title[:30]}... 价格:{item_price}")
+                            except Exception:
+                                pass
+            except Exception:
+                pass
+            
             # 尝试从扩展字段提取商品信息
             try:
                 if "bizTag" in message["1"]["10"]:
@@ -1648,48 +1671,69 @@ class XianyuLive(XianyuWebSocket):
                                     decoded_data = base64.b64decode(custom_data.get("data", ""))
                                     decoded_content = json.loads(decoded_data)
                                     
-                                    # 只处理文本消息
-                                    if decoded_content.get("contentType") == 1:
+                                    # 处理文本消息或商品卡片消息
+                                    content_type = decoded_content.get("contentType")
+                                    
+                                    if content_type == 1:
                                         # 提取消息文本
                                         message_text = decoded_content.get("text", {}).get("text", "")
-                                        
-                                        # 获取发送者信息
-                                        from_id = msg.get("fromId", "").split("@")[0]
-                                        
-                                        # 忽略自己发送的消息
-                                        if from_id == self.myid:
-                                            continue
-                                        
-                                        # 获取会话和商品信息
-                                        cid = msg.get("cid", "").split("@")[0]
-                                        
-                                        # 尝试从扩展字段获取用户名和商品信息
-                                        extension = msg.get("extension", {})
-                                        ext_json_str = extension.get("extJson", "{}")
-                                        
-                                        try:
-                                            ext_json = json.loads(ext_json_str) if ext_json_str else {}
-                                        except Exception:
-                                            ext_json = {}
-                                        
-                                        # 提取发送者名称和商品信息
-                                        send_user_name = ext_json.get("senderName", "未知用户")
-                                        item_id = ext_json.get("itemId", "") or "unknown_item"
-                                        item_description = ext_json.get("itemDescription", "未知商品")
-                                        
-                                        # 如果 ext_json 中没有 itemId，尝试从 reminderUrl 提取
-                                        if not item_id:
-                                            reminder_url = extension.get("reminderUrl", "")
-                                            if reminder_url and "itemId=" in reminder_url:
-                                                try:
-                                                    # 使用正则表达式提取 itemId
-                                                    import re
-                                                    match = re.search(r'itemId=(\d+)', reminder_url)
-                                                    if match:
-                                                        item_id = match.group(1)
-                                                        logger.info(f"从 reminderUrl 提取到 itemId: {item_id}")
-                                                except Exception as e:
-                                                    logger.debug(f"从 reminderUrl 提取 itemId 失败: {e}")
+                                    elif content_type == 7:
+                                        # 商品卡片消息
+                                        item_card = decoded_content.get("itemCard", {})
+                                        item_info = item_card.get("item", {})
+                                        message_text = f"[链接]{item_info.get('title', '商品')}"
+                                    else:
+                                        # 其他类型消息，跳过
+                                        continue
+                                    
+                                    # 获取发送者信息
+                                    from_id = msg.get("fromId", "").split("@")[0]
+                                    
+                                    # 忽略自己发送的消息
+                                    if from_id == self.myid:
+                                        continue
+                                    
+                                    # 获取会话和商品信息
+                                    cid = msg.get("cid", "").split("@")[0]
+                                    
+                                    # 尝试从扩展字段获取用户名和商品信息
+                                    extension = msg.get("extension", {})
+                                    ext_json_str = extension.get("extJson", "{}")
+                                    
+                                    try:
+                                        ext_json = json.loads(ext_json_str) if ext_json_str else {}
+                                    except Exception:
+                                        ext_json = {}
+                                    
+                                    # 提取发送者名称和商品信息
+                                    send_user_name = ext_json.get("senderName", "未知用户")
+                                    item_id = ext_json.get("itemId", "") or "unknown_item"
+                                    item_description = ext_json.get("itemDescription", "未知商品")
+                                    
+                                    # 如果 ext_json 中没有 itemId，尝试从 reminderUrl 提取
+                                    if not item_id or item_id == "unknown_item":
+                                        reminder_url = extension.get("reminderUrl", "")
+                                        if reminder_url and "itemId=" in reminder_url:
+                                            try:
+                                                # 使用正则表达式提取 itemId
+                                                import re
+                                                match = re.search(r'itemId=(\d+)', reminder_url)
+                                                if match:
+                                                    item_id = match.group(1)
+                                                    logger.info(f"从 reminderUrl 提取到 itemId: {item_id}")
+                                            except Exception as e:
+                                                logger.debug(f"从 reminderUrl 提取 itemId 失败: {e}")
+                                    
+                                    # 如果是商品卡片消息，直接从卡片提取商品信息
+                                    if content_type == 7 and item_card:
+                                        item_info = item_card.get("item", {})
+                                        if item_info:
+                                            item_id = str(item_info.get("itemId", item_id))
+                                            item_title = item_info.get("title", "")
+                                            item_price = item_info.get("price", "")
+                                            if item_title:
+                                                item_description = f"商品标题: {item_title}\n价格: ¥{item_price}" if item_price else f"商品标题: {item_title}"
+                                                logger.info(f"从商品卡片提取信息: {item_title[:30]}... 价格:{item_price}")
                                         
                                         # 如果消息不为空，处理消息
                                         if message_text:
