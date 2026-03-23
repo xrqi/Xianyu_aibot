@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XianyuBot 反馈管理后台</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .nav {
+            background: white;
+            padding: 15px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .nav button {
+            padding: 10px 20px;
+            border: none;
+            background: #f0f0f0;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        
+        .nav button:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        .nav button.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+        
+        .section {
+            display: none;
+        }
+        
+        .section.active {
+            display: block;
+        }
+        
+        /* 统计卡片 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .stat-card h3 {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            color: #999;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        
+        /* 对话列表 */
+        .conversation-list {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .conversation-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .conversation-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .conversation-item:last-child {
+            border-bottom: none;
+        }
+        
+        .conversation-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .user-id {
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .timestamp {
+            color: #999;
+            font-size: 12px;
+        }
+        
+        .item-id {
+            color: #666;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+        
+        .preview {
+            color: #999;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            margin-left: 10px;
+        }
+        
+        .badge-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .badge-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .badge-danger {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .badge-info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .badge-secondary {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+        
+        /* 对话详情弹窗 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            width: 90%;
+            max-width: 800px;
+            max-height: 80vh;
+            border-radius: 10px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+        
+        /* 消息气泡 */
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .message-user {
+            align-items: flex-start;
+        }
+        
+        .message-assistant {
+            align-items: flex-end;
+        }
+        
+        .message-bubble {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+        }
+        
+        .message-user .message-bubble {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        .message-assistant .message-bubble {
+            background: #667eea;
+            color: white;
+        }
+        
+        .message-time {
+            font-size: 11px;
+            color: #999;
+            margin-top: 5px;
+        }
+        
+        /* 按钮 */
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        /* 表单 */
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        /* 加载动画 */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        
+        /* 趋势图 */
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+        
+        .chart-bar {
+            display: flex;
+            align-items: flex-end;
+            height: 200px;
+            gap: 10px;
+            padding: 20px 0;
+        }
+        
+        .bar-item {
+            flex: 1;
+            background: #667eea;
+            border-radius: 5px 5px 0 0;
+            min-height: 5px;
+            position: relative;
+            transition: all 0.3s;
+        }
+        
+        .bar-item:hover {
+            background: #5568d3;
+        }
+        
+        .bar-label {
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 11px;
+            color: #666;
+            white-space: nowrap;
+        }
+        
+        .bar-value {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 11px;
+            color: #667eea;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🤖 XianyuBot 反馈管理后台</h1>
+        <p>查看对话、标记结果、优化AI回复策略</p>
+    </div>
+    
+    <div class="nav">
+        <button class="active" onclick="showSection('stats')">📊 统计报告</button>
+        <button onclick="showSection('conversations')">💬 对话列表</button>
+    </div>
+    
+    <div class="container">
+        <!-- 统计报告 -->
+        <div id="stats-section" class="section active">
+            <div id="stats-loading" class="loading">
+                <div class="spinner"></div>
+                <p>加载统计数据...</p>
+            </div>
+            <div id="stats-content" style="display: none;">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>本周对话数</h3>
+                        <div class="stat-value" id="weekly-conversations">0</div>
+                        <div class="stat-label">过去7天</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>成交数</h3>
+                        <div class="stat-value" id="weekly-deals">0</div>
+                        <div class="stat-label">本周成交</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>转化率</h3>
+                        <div class="stat-value" id="conversion-rate">0%</div>
+                        <div class="stat-label">成交/对话</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>总消息数</h3>
+                        <div class="stat-value" id="total-messages">0</div>
+                        <div class="stat-label">累计消息</div>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <h3>📈 最近7天消息趋势</h3>
+                    <div class="chart-bar" id="trend-chart"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 对话列表 -->
+        <div id="conversations-section" class="section">
+            <div id="conversations-loading" class="loading">
+                <div class="spinner"></div>
+                <p>加载对话列表...</p>
+            </div>
+            <div id="conversations-content" class="conversation-list" style="display: none;"></div>
+        </div>
+    </div>
+    
+    <!-- 对话详情弹窗 -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h2>对话详情</h2>
+                    <p id="modal-subtitle" style="color: #999; font-size: 12px; margin-top: 5px;"></p>
+                </div>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <!-- 消息内容 -->
+            </div>
+            <div class="modal-footer">
+                <div style="flex: 1;">
+                    <div class="form-group" style="display: flex; gap: 10px; align-items: center;">
+                        <label style="margin-bottom: 0;">结果:</label>
+                        <select id="outcome-select" style="width: auto;">
+                            <option value="">选择结果</option>
+                            <option value="deal">✅ 成交</option>
+                            <option value="no_deal">❌ 未成交</option>
+                            <option value="ongoing">⏳ 进行中</option>
+                        </select>
+                    </div>
+                    <div id="price-inputs" style="display: none; gap: 10px; margin-top: 10px;">
+                        <input type="number" id="final-price" placeholder="成交价" style="width: 100px;">
+                        <input type="number" id="original-price" placeholder="原价" style="width: 100px;">
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="saveOutcome()">保存标记</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUserId = null;
+        let currentItemId = null;
+        
+        // 切换页面
+        function showSection(section) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+            
+            document.getElementById(section + '-section').classList.add('active');
+            event.target.classList.add('active');
+            
+            if (section === 'stats') {
+                loadStats();
+            } else if (section === 'conversations') {
+                loadConversations();
+            }
+        }
+        
+        // 加载统计数据
+        async function loadStats() {
+            document.getElementById('stats-loading').style.display = 'block';
+            document.getElementById('stats-content').style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/stats');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const data = result.data;
+                    
+                    document.getElementById('weekly-conversations').textContent = 
+                        data.weekly_report.total_conversations || 0;
+                    document.getElementById('weekly-deals').textContent = 
+                        data.weekly_report.successful_deals || 0;
+                    document.getElementById('conversion-rate').textContent = 
+                        (data.weekly_report.conversion_rate * 100).toFixed(1) + '%';
+                    document.getElementById('total-messages').textContent = 
+                        data.total_messages || 0;
+                    
+                    // 渲染趋势图
+                    renderTrendChart(data.daily_trend);
+                    
+                    document.getElementById('stats-loading').style.display = 'none';
+                    document.getElementById('stats-content').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('加载统计失败:', error);
+            }
+        }
+        
+        // 渲染趋势图
+        function renderTrendChart(trend) {
+            const chart = document.getElementById('trend-chart');
+            chart.innerHTML = '';
+            
+            if (!trend || trend.length === 0) {
+                chart.innerHTML = '<div class="empty-state">暂无数据</div>';
+                return;
+            }
+            
+            const maxValue = Math.max(...trend.map(t => t.count));
+            
+            trend.forEach(item => {
+                const barItem = document.createElement('div');
+                barItem.className = 'bar-item';
+                barItem.style.height = (item.count / maxValue * 100) + '%';
+                barItem.innerHTML = `
+                    <div class="bar-value">${item.count}</div>
+                    <div class="bar-label">${item.day.slice(5)}</div>
+                `;
+                chart.appendChild(barItem);
+            });
+        }
+        
+        // 加载对话列表
+        async function loadConversations() {
+            document.getElementById('conversations-loading').style.display = 'block';
+            document.getElementById('conversations-content').style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/conversations');
+                const result = await response.json();
+                
+                if (result.success) {
+                    renderConversations(result.data);
+                    document.getElementById('conversations-loading').style.display = 'none';
+                    document.getElementById('conversations-content').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('加载对话失败:', error);
+            }
+        }
+        
+        // 渲染对话列表
+        function renderConversations(conversations) {
+            const container = document.getElementById('conversations-content');
+            container.innerHTML = '';
+            
+            if (conversations.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">💬</div>
+                        <p>暂无对话记录</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            conversations.forEach(conv => {
+                const item = document.createElement('div');
+                item.className = 'conversation-item';
+                item.onclick = () => openConversation(conv.user_id, conv.item_id);
+                
+                // 根据标记状态显示不同标签
+                let statusBadge = '';
+                if (conv.outcome === 'deal') {
+                    statusBadge = '<span class="badge badge-success">✅ 已成交</span>';
+                } else if (conv.outcome === 'no_deal') {
+                    statusBadge = '<span class="badge badge-danger">❌ 未成交</span>';
+                } else if (conv.outcome === 'ongoing') {
+                    statusBadge = '<span class="badge badge-info">⏳ 进行中</span>';
+                } else {
+                    statusBadge = '<span class="badge badge-secondary">📝 未标记</span>';
+                }
+                
+                item.innerHTML = `
+                    <div class="conversation-header">
+                        <span class="user-id">用户: ${conv.user_id.slice(0, 15)}... ${statusBadge}</span>
+                        <span class="timestamp">${formatTime(conv.last_time)}</span>
+                    </div>
+                    <div class="item-id">商品: ${conv.item_id} · ${conv.msg_count} 条消息</div>
+                    <div class="preview">${conv.last_message || '无消息预览'}</div>
+                `;
+                
+                container.appendChild(item);
+            });
+        }
+        
+        // 打开对话详情
+        async function openConversation(userId, itemId) {
+            currentUserId = userId;
+            currentItemId = itemId;
+            
+            document.getElementById('modal-subtitle').textContent = 
+                `用户: ${userId} | 商品: ${itemId}`;
+            
+            const modalBody = document.getElementById('modal-body');
+            modalBody.innerHTML = '<div class="loading"><div class="spinner"></div><p>加载中...</p></div>';
+            
+            document.getElementById('modal').classList.add('active');
+            
+            try {
+                const response = await fetch(`/api/conversation/${encodeURIComponent(userId)}/${encodeURIComponent(itemId)}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    renderMessages(result.data.messages);
+                }
+            } catch (error) {
+                modalBody.innerHTML = '<p style="color: red;">加载失败</p>';
+            }
+        }
+        
+        // 渲染消息
+        function renderMessages(messages) {
+            const modalBody = document.getElementById('modal-body');
+            modalBody.innerHTML = '';
+            
+            messages.forEach(msg => {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message message-${msg.role}`;
+                
+                messageDiv.innerHTML = `
+                    <div class="message-bubble">${escapeHtml(msg.content)}</div>
+                    <div class="message-time">${formatTime(msg.timestamp)}</div>
+                `;
+                
+                modalBody.appendChild(messageDiv);
+            });
+            
+            // 滚动到底部
+            modalBody.scrollTop = modalBody.scrollHeight;
+        }
+        
+        // 关闭弹窗
+        function closeModal() {
+            document.getElementById('modal').classList.remove('active');
+            currentUserId = null;
+            currentItemId = null;
+        }
+        
+        // 保存结果
+        async function saveOutcome() {
+            const outcome = document.getElementById('outcome-select').value;
+            if (!outcome) {
+                alert('请选择结果');
+                return;
+            }
+            
+            const data = {
+                user_id: currentUserId,
+                item_id: currentItemId,
+                outcome: outcome
+            };
+            
+            if (outcome === 'deal') {
+                const finalPrice = document.getElementById('final-price').value;
+                const originalPrice = document.getElementById('original-price').value;
+                if (finalPrice) data.final_price = parseFloat(finalPrice);
+                if (originalPrice) data.original_price = parseFloat(originalPrice);
+            }
+            
+            try {
+                const response = await fetch('/api/record_outcome', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('标记成功！');
+                    closeModal();
+                    // 刷新对话列表以显示新状态
+                    if (document.getElementById('conversations-section').classList.contains('active')) {
+                        loadConversations();
+                    }
+                } else {
+                    alert('标记失败: ' + result.error);
+                }
+            } catch (error) {
+                alert('保存失败');
+            }
+        }
+        
+        // 结果选择变化
+        document.getElementById('outcome-select').addEventListener('change', function() {
+            const priceInputs = document.getElementById('price-inputs');
+            if (this.value === 'deal') {
+                priceInputs.style.display = 'flex';
+            } else {
+                priceInputs.style.display = 'none';
+            }
+        });
+        
+        // 工具函数
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleString('zh-CN');
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // 点击弹窗外部关闭
+        document.getElementById('modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+        
+        // 页面加载时加载统计数据
+        loadStats();
+    </script>
+</body>
+</html>

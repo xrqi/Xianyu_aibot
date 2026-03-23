@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  xianyubot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: xianyubot
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Shanghai
+      # 从 .env 文件加载环境变量
+    env_file:
+      - .env
+    volumes:
+      # 持久化数据
+      - ./data:/app/data
+      # 持久化cookies
+      - ./data/xianyu_cookies.json:/app/data/xianyu_cookies.json
+      # 自定义提示词（可选）
+      - ./prompts:/app/prompts
+    networks:
+      - xianyubot-network
+    # 如果需要Web反馈后台，暴露端口
+    ports:
+      - "5000:5000"
+    # 健康检查
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # 标准输入/TTY（用于交互式登录）
+    stdin_open: true
+    tty: true
+
+  # 可选：Nginx反向代理（生产环境推荐）
+  nginx:
+    image: nginx:alpine
+    container_name: xianyubot-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - xianyubot
+    networks:
+      - xianyubot-network
+    profiles:
+      - production
+
+networks:
+  xianyubot-network:
+    driver: bridge
+
+volumes:
+  xianyubot-data:
+    driver: local

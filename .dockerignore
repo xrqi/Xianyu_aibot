@@ -1,0 +1,43 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# 环境配置（敏感信息）
+.env
+.env.local
+
+# 数据文件（容器中会创建新的）
+data/*.db
+data/*.bak
+
+# 日志
+*.log
+logs/
+
+# 文档（可选，如果需要可以删除此行）
+docs/
+
+# 其他
+*.zip
+*.tar.gz
+.qoder/
