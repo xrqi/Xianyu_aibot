@@ -334,7 +334,12 @@ class XianyuReplyBot:
                 return reply
         
         # 构建更丰富的商品信息提示
-        item_info = item_desc if item_desc else '未知商品'
+        if not item_desc or item_desc == '未知商品':
+            item_info = '商品信息暂未获取，请用通用话术回复，不要编造具体价格和商品描述。'
+            item_warning = "\n⚠️ 重要：你没有获取到该商品的具体信息（价格、标题、描述等），请使用通用回复话术，不要编造具体的商品名称、价格或描述。可以询问买家具体想了解什么商品。"
+        else:
+            item_info = item_desc
+            item_warning = ""
         
         # 添加议价策略提示
         bargain_strategy = ""
@@ -346,7 +351,7 @@ class XianyuReplyBot:
             bargain_strategy = f"这是买家第{bargain_count+1}次议价，可以适当让步但要有底线，强调已经是最大优惠了。"
         
         # 构建系统消息
-        system_content = f"""【商品信息】{item_info}
+        system_content = f"""【商品信息】{item_info}{item_warning}
 
 【对话历史】{context}
 

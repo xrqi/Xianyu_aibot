@@ -1101,6 +1101,73 @@ class XianyuLive(XianyuWebSocket):
         self.fingerprint_cleaner = Thread(target=self._clean_message_fingerprints_worker, args=())
         self.fingerprint_cleaner.daemon = True
         self.fingerprint_cleaner.start()
+        
+        # 商品信息缓存
+        self.item_info_cache = {}  # 格式: {item_id: {"title": str, "price": str, "description": str, "timestamp": float}}
+        self.item_cache_ttl = 3600  # 缓存1小时
+        self.xianyu_apis = XianyuApis()  # API接口实例
+    
+    def _get_item_info_from_cache(self, item_id):
+        """从缓存获取商品信息，如果过期则返回None"""
+        import time
+        if item_id in self.item_info_cache:
+            cache_data = self.item_info_cache[item_id]
+            if time.time() - cache_data.get("timestamp", 0) < self.item_cache_ttl:
+                return cache_data
+        return None
+    
+    def _fetch_item_info(self, item_id):
+        """主动获取商品信息"""
+        try:
+            # 先检查缓存
+            cached = self._get_item_info_from_cache(item_id)
+            if cached:
+                return cached
+            
+            # 调用API获取商品信息
+            item_data = self.xianyu_apis.get_item_info(item_id, self.cookies)
+            
+            if item_data and isinstance(item_data, dict):
+                # 提取关键信息
+                item_info = {
+                    "title": item_data.get("title", ""),
+                    "price": str(item_data.get("price", "")).replace("¥", "").replace(",", ""),
+                    "description": item_data.get("description", ""),
+                    "timestamp": time.time()
+                }
+                
+                # 缓存结果
+                self.item_info_cache[item_id] = item_info
+                logger.info(f"成功获取商品 {item_id} 信息: {item_info['title'][:30]}... 价格:{item_info['price']}")
+                return item_info
+            
+        except Exception as e:
+            logger.warning(f"获取商品 {item_id} 信息失败: {e}")
+        
+        return None
+    
+    def _format_item_description(self, item_id, item_description):
+        """格式化商品描述，优先使用主动获取的信息"""
+        # 如果消息中已经包含商品描述且不为空，直接使用
+        if item_description and item_description != "未知商品":
+            return item_description
+        
+        # 尝试从缓存或API获取
+        if item_id:
+            item_info = self._fetch_item_info(item_id)
+            if item_info and item_info.get("title"):
+                parts = []
+                if item_info.get("title"):
+                    parts.append(f"商品标题: {item_info['title']}")
+                if item_info.get("price"):
+                    parts.append(f"价格: ¥{item_info['price']}")
+                if item_info.get("description"):
+                    desc = item_info['description'][:200]  # 限制长度
+                    parts.append(f"描述: {desc}")
+                
+                return "\n".join(parts) if parts else "未知商品"
+        
+        return item_description or "未知商品"
     
     def _clean_system_notice_cache_worker(self):
         """定期清理过期的系统通知缓存"""
@@ -1404,9 +1471,11 @@ class XianyuLive(XianyuWebSocket):
                     logger.info(f"系统通知: 使用统一回复: {bot_reply}")
                 else:
                     # 对普通消息使用模型生成回复
+                    # 尝试获取更完整的商品信息
+                    enriched_item_desc = self._format_item_description(item_id, item_description)
                     bot_reply = self.bot.generate_reply(
                         send_message,
-                        item_description,
+                        enriched_item_desc,
                         context=context
                     )
                 
