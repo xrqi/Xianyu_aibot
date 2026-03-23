@@ -662,6 +662,19 @@ class XianyuWebSocket:
                             item_description = item_info.get("description", "")
                     except Exception:
                         pass
+                
+                # 如果还没有 item_id，尝试从 reminderUrl 提取
+                if item_id == "unknown_item":
+                    reminder_url = message["1"]["10"].get("reminderUrl", "")
+                    if reminder_url and "itemId=" in reminder_url:
+                        try:
+                            import re
+                            match = re.search(r'itemId=(\d+)', reminder_url)
+                            if match:
+                                item_id = match.group(1)
+                                logger.info(f"从 reminderUrl 提取到 itemId: {item_id}")
+                        except Exception:
+                            pass
             except Exception:
                 pass
             
@@ -1148,12 +1161,16 @@ class XianyuLive(XianyuWebSocket):
     
     def _format_item_description(self, item_id, item_description):
         """格式化商品描述，优先使用主动获取的信息"""
+        # 清理 item_id，确保不是空字符串或 None
+        if not item_id or item_id.strip() == "":
+            item_id = "unknown_item"
+        
         # 如果消息中已经包含商品描述且不为空，直接使用
-        if item_description and item_description != "未知商品":
+        if item_description and item_description != "未知商品" and len(item_description) > 10:
             return item_description
         
-        # 尝试从缓存或API获取
-        if item_id and item_id != "unknown_item":
+        # 尝试从缓存或API获取（只要不是 unknown_item 就尝试）
+        if item_id != "unknown_item":
             item_info = self._fetch_item_info(item_id)
             if item_info and item_info.get("title"):
                 parts = []
@@ -1168,10 +1185,7 @@ class XianyuLive(XianyuWebSocket):
                 return "\n".join(parts) if parts else "未知商品"
         
         # 如果无法获取商品信息，返回明确的提示
-        if item_id and item_id != "unknown_item":
-            return f"【系统提示】无法获取商品 {item_id} 的详细信息。请诚实告知买家你需要查看商品详情后才能回答，或引导买家查看商品页面。"
-        
-        return item_description or "未知商品"
+        return "【系统提示】无法获取商品详细信息。请诚实告知买家你需要查看商品详情后才能回答，或引导买家查看商品页面。"
     
     def _clean_system_notice_cache_worker(self):
         """定期清理过期的系统通知缓存"""
@@ -1260,6 +1274,10 @@ class XianyuLive(XianyuWebSocket):
                 cid = task_data["cid"]
                 message_id = task_data.get("message_id")  # 获取消息ID，用于引用回复
                 fingerprint = task_data.get("fingerprint", "")  # 获取消息指纹
+                
+                # 诊断日志：检查 item_id
+                if not item_id or item_id == "unknown_item":
+                    logger.warning(f"⚠️ item_id 为空或 unknown_item，用户: {send_user_id}, 消息: {send_message[:30]}...")
                 
                 # 再次检查消息指纹，确保没有其他线程已经处理过相同的消息
                 # 这是双重保险，防止短时间内相同消息通过不同渠道进入队列
@@ -1656,7 +1674,7 @@ class XianyuLive(XianyuWebSocket):
                                         
                                         # 提取发送者名称和商品信息
                                         send_user_name = ext_json.get("senderName", "未知用户")
-                                        item_id = ext_json.get("itemId", "")
+                                        item_id = ext_json.get("itemId", "") or "unknown_item"
                                         item_description = ext_json.get("itemDescription", "未知商品")
                                         
                                         # 如果 ext_json 中没有 itemId，尝试从 reminderUrl 提取
@@ -1664,12 +1682,11 @@ class XianyuLive(XianyuWebSocket):
                                             reminder_url = extension.get("reminderUrl", "")
                                             if reminder_url and "itemId=" in reminder_url:
                                                 try:
-                                                    # 解析 URL 参数
-                                                    from urllib.parse import urlparse, parse_qs
-                                                    parsed = urlparse(reminder_url)
-                                                    query_params = parse_qs(parsed.query)
-                                                    if 'itemId' in query_params:
-                                                        item_id = query_params['itemId'][0]
+                                                    # 使用正则表达式提取 itemId
+                                                    import re
+                                                    match = re.search(r'itemId=(\d+)', reminder_url)
+                                                    if match:
+                                                        item_id = match.group(1)
                                                         logger.info(f"从 reminderUrl 提取到 itemId: {item_id}")
                                                 except Exception as e:
                                                     logger.debug(f"从 reminderUrl 提取 itemId 失败: {e}")
